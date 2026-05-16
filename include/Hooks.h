@@ -15,8 +15,8 @@ namespace Hooks {
     };
 
     inline void InstallHooks() {
-        UpdateHook::Update_ =
-            REL::Relocation<std::uintptr_t>(RE::VTABLE_PlayerCharacter[0]).write_vfunc(0xAD, UpdateHook::Update);
+        UpdateHook::Update_ = REL::Relocation<std::uintptr_t>(RE::VTABLE_PlayerCharacter[0])
+                                  .write_vfunc(REL::Relocate(0xAD, 0xAD, 0xAF), UpdateHook::Update);
 
         RefLoadHook::Load3D_ =
             REL::Relocation<std::uintptr_t>(RE::VTABLE_TESObjectREFR[0]).write_vfunc(0x6A, RefLoadHook::Load3D);
