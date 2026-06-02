@@ -23,13 +23,25 @@ namespace MCP {
     }
 
     void __stdcall RenderConfig() { auto* set = Config::GetSingleton();
-        ImGuiMCP::Checkbox("Mod Active", &set->ModActive);
+        if (ImGuiMCP::Checkbox("Mod Active", &set->ModActive)) {
+            if (!set->ModActive) {
+                Wind::Manager::GetSingleton()->DisableMod();
+            } else {
+                Wind::Manager::GetSingleton()->EnableMod();
+            }
+        }
         ImGuiMCP::Checkbox("Animation Handler", &set->AnimationHandlerEnabled);
         ImGuiMCP::Checkbox("Base Object Swap Handler", &set->BaseObjSwapHandlerEnabled);
         ImGuiMCP::Checkbox("Model Swap Handler", &set->ModelSwapHandlerEnabled);
         ImGuiMCP::Checkbox("Push Handler", &set->PushHandlerEnabled);
         ImGuiMCP::Checkbox("Rotation Handler", &set->RotationHandlerEnabled);
-        ImGuiMCP::Checkbox("Tree Handler", &set->TreeHandlerEnabled);
+        if (ImGuiMCP::Checkbox("Tree Handler", &set->TreeHandlerEnabled)) {
+            if (!set->TreeHandlerEnabled) {
+                Wind::Manager::GetSingleton()->DisableMod();
+            } else {
+                Wind::Manager::GetSingleton()->EnableMod();
+            }
+        }
         ImGuiMCP::Checkbox("Visibility Handler", &set->VisibilityHandlerEnabled);
         ImGuiMCP::SliderFloat("Min Wind Strength", &set->minWindStrength, 0.0f, 1.0f);
         ImGuiMCP::SliderFloat("Max Wind Strength", &set->maxWindStrength, 0.0f, 1.0f);
@@ -442,8 +454,8 @@ namespace MCP {
                         if (ImGuiMCP::Button("Save ModelSwap Config (Base)")) {
                             windFram->AddNewModelSwapConfig(base, headingRotation, angleFactor, swaps);
                             RE::TES::GetSingleton()->ForEachReference([](RE::TESObjectREFR* ref) {
-                                auto [angle, strength] = Wind::Manager::GetSingleton()->GetTargets();
-                                WindFramework::GetSingleton()->RefLoad(ref, angle, strength);
+                                auto [loc_angle, loc_strength] = Wind::Manager::GetSingleton()->GetTargets();
+                                WindFramework::GetSingleton()->RefLoad(ref, loc_angle, loc_strength);
                                 return RE::BSContainer::ForEachResult::kContinue;
                             });
                         }
@@ -451,8 +463,8 @@ namespace MCP {
                         if (ImGuiMCP::Button("Save ModelSwap Config (Ref)")) {
                             windFram->AddNewModelSwapConfig(ref, headingRotation, angleFactor, swaps);
                             RE::TES::GetSingleton()->ForEachReference([](RE::TESObjectREFR* ref) {
-                                auto [angle, strength] = Wind::Manager::GetSingleton()->GetTargets();
-                                WindFramework::GetSingleton()->RefLoad(ref, angle, strength);
+                                auto [loc_angle, loc_strength] = Wind::Manager::GetSingleton()->GetTargets();
+                                WindFramework::GetSingleton()->RefLoad(ref, loc_angle, loc_strength);
                                 return RE::BSContainer::ForEachResult::kContinue;
                             });
                         }
@@ -520,8 +532,8 @@ namespace MCP {
                         if (ImGuiMCP::Button("Save BaseObjSwap Config (Base)")) {
                             windFram->AddNewBaseObjSwapConfig(base->GetFormID(), swaps, headingRotation, angleFactor);
                             RE::TES::GetSingleton()->ForEachReference([](RE::TESObjectREFR* ref) {
-                                auto [angle, strength] = Wind::Manager::GetSingleton()->GetTargets();
-                                WindFramework::GetSingleton()->RefLoad(ref, angle, strength);
+                                auto [loc_angle, loc_strength] = Wind::Manager::GetSingleton()->GetTargets();
+                                WindFramework::GetSingleton()->RefLoad(ref, loc_angle, loc_strength);
                                 return RE::BSContainer::ForEachResult::kContinue;
                             });
                         }
@@ -529,8 +541,8 @@ namespace MCP {
                         if (ImGuiMCP::Button("Save BaseObjSwap Config (Ref)")) {
                             windFram->AddNewBaseObjSwapConfig(ref->GetFormID(), swaps, headingRotation, angleFactor);
                             RE::TES::GetSingleton()->ForEachReference([](RE::TESObjectREFR* ref) {
-                                auto [angle, strength] = Wind::Manager::GetSingleton()->GetTargets();
-                                WindFramework::GetSingleton()->RefLoad(ref, angle, strength);
+                                auto [loc_angle, loc_strength] = Wind::Manager::GetSingleton()->GetTargets();
+                                WindFramework::GetSingleton()->RefLoad(ref, loc_angle, loc_strength);
                                 return RE::BSContainer::ForEachResult::kContinue;
                             });
                         }

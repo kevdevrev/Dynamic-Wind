@@ -149,6 +149,8 @@ public:
         }
     }
 
+    void DisableMod() { treeHandler_.Update(0, 0); }
+
     void RefLoad(RE::TESObjectREFR* ref, float angle = 0.0f, float strength = 0.0f) {
         if (!ref) return;
 

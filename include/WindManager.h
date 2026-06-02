@@ -58,12 +58,26 @@ namespace Wind {
                 // Just set the wind to target values
                 sky->windSpeed = _targetStrength;
                 sky->windAngle = _targetAngle;
+                // if no precipitation, set it to match the wind direction and strength
+                if (!sky->IsRaining() && !sky->IsSnowing()) {
+                    auto& precipDir = sky->precip->GetDirection();
+                    precipDir.x = std::cos(_targetAngle);
+                    precipDir.y = std::sin(_targetAngle);
+                    precipDir.z = _targetStrength;
+                }
                 if (_UpdateWindFramework) {
                     WindFramework::GetSingleton()->Update(finalStrength, finalAngle, deltaTime);
                 }
             } else {
                 sky->windSpeed = finalStrength;
                 sky->windAngle = finalAngle;
+                // if no precipitation, set it to match the wind direction and strength
+                if (!sky->IsRaining() && !sky->IsSnowing()) {
+                    auto& precipDir = sky->precip->GetDirection();
+                    precipDir.x = std::cos(finalAngle);
+                    precipDir.y = std::sin(finalAngle);
+                    precipDir.z = finalStrength;
+                }
                 WindFramework::GetSingleton()->Update(finalStrength, finalAngle, deltaTime);
             }
         }
@@ -81,12 +95,25 @@ namespace Wind {
 
         std::pair<float, float> GetTargets() const { return {_targetAngle, _targetStrength}; }
 
+        void DisableMod() { 
+            auto* sky = RE::Sky::GetSingleton();
+            float vanillaStrength = float(sky->currentWeather->data.windSpeed) / 255.0f;
+            float vanillaAngle = sky->currentWeather->data.windDirection * (M_PI / 128.0f);
+            sky->windSpeed = vanillaStrength;
+            sky->windAngle = vanillaAngle;
+            WindFramework::GetSingleton()->DisableMod();
+        }
+
+        void EnableMod() {
+            auto* sky = RE::Sky::GetSingleton();
+            GenerateNewTargets(sky);
+        }
+
     private:
         void GenerateNewTargets(const RE::Sky* sky) {
             float vanillaStrength = float(sky->currentWeather->data.windSpeed) / 255.0f;
 
             auto* conf = Config::GetSingleton();
-            auto* windFramework = WindFramework::GetSingleton();
 
             float scaledStrength =
                 conf->minWindStrength + (vanillaStrength * (conf->maxWindStrength - conf->minWindStrength));
@@ -94,7 +121,7 @@ namespace Wind {
             _targetAngle = RandomFloat(-M_PI, M_PI); // 100% random direction
             _targetStrength = scaledStrength * RandomFloat(0.9f, 1.1f);  // A bit random strength
 
-            windFramework->NewTargets(_targetStrength, _targetAngle);
+            WindFramework::GetSingleton()->NewTargets(_targetStrength, _targetAngle);
 
             logger::info("NewTargets: _targetAngle: {}, _targetStrength {}, vanillaStrength {}", _targetAngle,
                          _targetStrength, vanillaStrength);
