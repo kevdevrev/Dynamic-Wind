@@ -3,9 +3,14 @@
 #include "MCP.h"
 #include "Settings.h"
 #include "WindFramework.h"
+#include "OpenShadersWind.h"
 
 void OnMessage(SKSE::MessagingInterface::Message* message) {
-    if (message->type == SKSE::MessagingInterface::kDataLoaded) {
+    if (message->type == SKSE::MessagingInterface::kPostLoad) {
+        OpenShadersWind::Connect();
+    } else if (message->type == SKSE::MessagingInterface::kDataLoaded) {
+        if (!OpenShadersWind::IsAvailable())
+            OpenShadersWind::Connect();
         MCP::Register();
         WindFramework::GetSingleton();  // Init
     }

@@ -1,6 +1,11 @@
-﻿#pragma once
+#pragma once
 
 #include "Utils.h"
+#include <algorithm>
+#include <cmath>
+#include <optional>
+#include <unordered_map>
+#include <vector>
 #include <nlohmann/json.hpp>
 
 struct AnimationConfig {
@@ -45,7 +50,7 @@ public:
         }
     }
 
-    void Apply(RE::TESObjectREFR* ref, float windStrength, float windAngle) {
+    void Apply(RE::TESObjectREFR* ref, float windStrength, float windAngle, std::optional<float> windFieldDeltaTime = std::nullopt) {
         auto* node = ref->Get3D();
         if (!node) return;
 
@@ -70,11 +75,33 @@ public:
 
         float speed = cfg.speedMin + ((cfg.speedMax - cfg.speedMin) * windStrength * finalFactor);
 
-        Utils::ApplySpeedToNode(node, speed);
+        // Only sampled wind-field input uses smoothing; the original Dynamic Wind path applies speed directly.
+        if (windFieldDeltaTime) ApplyWindFieldRate(ref, speed, *windFieldDeltaTime);
+        else Utils::ApplySpeedToNode(node, speed);
     }
 
-    private:
+    // WindField update lifecycle, called around the framework's sampled animation batch.
+    /// Marks responses for removal unless their reference is updated this frame.
+    void BeginWindFieldUpdate() { for (auto& [id, state] : _windFieldAnimations) state.updated = false; }
 
+    /// Restores authored rates for references no longer handled by the wind provider.
+    void EndWindFieldUpdate() {
+        for (auto it = _windFieldAnimations.begin(); it != _windFieldAnimations.end();) {
+            if (!it->second.updated) {
+                RestoreWindFieldRates(it->second);
+                it = _windFieldAnimations.erase(it);
+            } else ++it;
+        }
+    }
+
+    /// Releases all controlled animations without restarting their clocks.
+    void ClearWindFieldAnimations() {
+        for (auto& [id, state] : _windFieldAnimations) RestoreWindFieldRates(state);
+        _windFieldAnimations.clear();
+    }
+
+private:
+    // Configuration file loading and persistence.
     bool LoadConfig(const std::string& path, AnimationConfig& outConfig) {
         std::ifstream file(path);
         if (!file.is_open()) {
@@ -155,5 +182,75 @@ public:
         return configs;
     }
 
+    // WindField playback smoothing and controller-rate restoration.
+    static constexpr float WindFieldResponseTime = 0.08f;
+    static constexpr float WindFieldMaximumTimeStep = 0.1f;
+    static constexpr float WindFieldMinimumSynchronizedRate = 0.001f;
+
+    template<class T> struct WindFieldOriginalRate {
+        RE::NiPointer<T> object;
+        float frequency;
+    };
+    struct WindFieldAnimationState {
+        RE::NiPointer<RE::NiAVObject> root;
+        std::vector<WindFieldOriginalRate<RE::NiControllerSequence>> sequences;
+        std::vector<WindFieldOriginalRate<RE::NiTimeController>> controllers;
+        float rate{};
+        bool updated{};
+    };
+
+    /// Drives existing NIF sequences/controllers in place; no reference or mesh replacement.
+    void ApplyWindFieldRate(RE::TESObjectREFR* ref, float rate, float deltaTime) {
+        auto* root = ref->Get3D();
+        if (!root || !std::isfinite(rate) || !std::isfinite(deltaTime) || deltaTime < 0.0f) return;
+        auto& state = _windFieldAnimations[ref->GetFormID()];
+        if (state.root.get() != root) {
+            RestoreWindFieldRates(state);
+            state = {};
+            state.root = RE::NiPointer<RE::NiAVObject>(root);
+            state.rate = rate;
+        }
+        state.updated = true;
+        const float blend = -std::expm1(-std::min(deltaTime, WindFieldMaximumTimeStep) / WindFieldResponseTime);
+        // Preserve signed rates so configured reverse playback also works with WindField smoothing.
+        state.rate += (rate - state.rate) * blend;
+        const auto visit = [&](auto&& self, RE::NiAVObject* node) -> void {
+            if (!node) return;
+            for (auto* controller = node->GetControllers(); controller; controller = controller->GetNext()) {
+                if (auto* manager = controller->AsNiControllerManager()) {
+                    for (auto* sequence : manager->activeSequences)
+                        if (sequence) {
+                            SetWindFieldRate(state.sequences, sequence, state.rate);
+                            // Partner synchronization divides by frequency, so synchronized sequences cannot stop completely.
+                            if (sequence->partnerSequence && std::abs(sequence->frequency) < WindFieldMinimumSynchronizedRate)
+                                sequence->frequency = std::copysign(WindFieldMinimumSynchronizedRate, sequence->frequency);
+                        }
+                } else if (!controller->flags.any(RE::NiTimeController::Flag::kManagerControlled)) {
+                    SetWindFieldRate(state.controllers, controller, state.rate);
+                }
+            }
+            if (auto* parent = node->AsNode())
+                for (auto& child : parent->GetChildren()) self(self, child.get());
+        };
+        visit(visit, root);
+    }
+
+    template<class T>
+    static void SetWindFieldRate(std::vector<WindFieldOriginalRate<T>>& originals, T* object, float rate) {
+        auto it = std::find_if(originals.begin(), originals.end(), [&](const auto& entry) { return entry.object.get() == object; });
+        if (it == originals.end()) {
+            originals.push_back({RE::NiPointer<T>(object), object->frequency});
+        }
+        // The engine integrates frequency into weightedLastTime; retaining its clock preserves phase.
+        object->frequency = rate;
+    }
+
+    static void RestoreWindFieldRates(WindFieldAnimationState& state) {
+        for (auto& entry : state.sequences) entry.object->frequency = entry.frequency;
+        for (auto& entry : state.controllers) entry.object->frequency = entry.frequency;
+    }
+
+    // Saved configuration and active WindField animation state.
     std::unordered_map<RE::FormID, AnimationConfig> _configs;
+    std::unordered_map<RE::FormID, WindFieldAnimationState> _windFieldAnimations;
 };

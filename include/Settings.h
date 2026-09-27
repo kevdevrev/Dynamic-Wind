@@ -62,6 +62,13 @@ public:
                     TreeHandlerEnabled = (value == "true" || value == "True" || value == "1");
                 }
             }
+            if (line.contains("bOpenShadersIntegrationEnabled")) {
+                auto pos = line.find('=');
+                if (pos != std::string::npos) {
+                    std::string value = line.substr(pos + 1);
+                    OpenShadersIntegrationEnabled = (value == "true" || value == "True" || value == "1");
+                }
+            }
             if (line.contains("bVisibilityHandlerEnabled")) {
                 auto pos = line.find('=');
                 if (pos != std::string::npos) {
@@ -113,6 +120,7 @@ public:
         file << "bModelSwapHandlerEnabled=" << (ModelSwapHandlerEnabled ? "true" : "false") << std::endl;
         file << "bPushHandlerEnabled=" << (PushHandlerEnabled ? "true" : "false") << std::endl;
         file << "bRotationHandlerEnabled=" << (RotationHandlerEnabled ? "true" : "false") << std::endl;
+        file << "bOpenShadersIntegrationEnabled=" << (OpenShadersIntegrationEnabled ? "true" : "false") << std::endl;
         file << "bTreeHandlerEnabled=" << (TreeHandlerEnabled ? "true" : "false") << std::endl;
         file << "bVisibilityHandlerEnabled=" << (VisibilityHandlerEnabled ? "true" : "false") << std::endl;
 
@@ -129,6 +137,7 @@ public:
     bool PushHandlerEnabled{true};
     bool RotationHandlerEnabled{true};
     bool TreeHandlerEnabled{true};
+    bool OpenShadersIntegrationEnabled{true};
     bool VisibilityHandlerEnabled{true};
     bool EnableTimeLogging{false};
 

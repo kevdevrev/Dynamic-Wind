@@ -35,12 +35,17 @@ namespace MCP {
         ImGuiMCP::Checkbox("Model Swap Handler", &set->ModelSwapHandlerEnabled);
         ImGuiMCP::Checkbox("Push Handler", &set->PushHandlerEnabled);
         ImGuiMCP::Checkbox("Rotation Handler", &set->RotationHandlerEnabled);
+        ImGuiMCP::BeginDisabled(OpenShadersWind::IsEnabled());
         if (ImGuiMCP::Checkbox("Tree Handler", &set->TreeHandlerEnabled)) {
             if (!set->TreeHandlerEnabled) {
                 Wind::Manager::GetSingleton()->DisableMod();
             } else {
                 Wind::Manager::GetSingleton()->EnableMod();
             }
+        }
+        ImGuiMCP::EndDisabled();
+        if (OpenShadersWind::IsAvailable()) {
+            ImGuiMCP::Checkbox("Enable Open Shaders Integration", &set->OpenShadersIntegrationEnabled);
         }
         ImGuiMCP::Checkbox("Visibility Handler", &set->VisibilityHandlerEnabled);
         ImGuiMCP::SliderFloat("Min Wind Strength", &set->minWindStrength, 0.0f, 1.0f);
@@ -113,6 +118,7 @@ namespace MCP {
                         return RE::BSContainer::ForEachResult::kContinue;
                     });
                 }
+                ImGuiMCP::BeginDisabled(OpenShadersWind::IsEnabled());
                 auto* treeMgr = RE::BSTreeManager::GetSingleton();
                 if (treeMgr) {
                     ImGuiMCP::Text("TreeWind x: %.2f", treeMgr->windDirection.x);
@@ -124,6 +130,7 @@ namespace MCP {
                     }
                     ImGuiMCP::SliderFloat("TreeManager: Wind Magnitude", &treeMgr->windMagnitude, 0.0f, 10.0f);
                 }
+                ImGuiMCP::EndDisabled();
             }
         }
 
@@ -131,6 +138,7 @@ namespace MCP {
             if (auto ref = refPtr.get()) {
                 if (auto* base = ref->GetBaseObject()) {
                     auto windFram = WindFramework::GetSingleton();
+                    ImGuiMCP::BeginDisabled(OpenShadersWind::IsEnabled());
                     // Try casting to tree (TESObjectTREE)
                     if (auto* tree = base->As<RE::TESObjectTREE>()) {
                         // Access tree data (CNAM)
@@ -218,6 +226,7 @@ namespace MCP {
                         }
                     }
 
+                    ImGuiMCP::EndDisabled();
                     if (ImGuiMCP::CollapsingHeader("Animation Settings")) {
                         static float minAnimSpeed = 0.0f;
                         static float maxAnimSpeed = 1.0f;
@@ -761,6 +770,7 @@ namespace MCP {
                 }
             }
 
+            ImGuiMCP::BeginDisabled(OpenShadersWind::IsEnabled());
             // TreeConfig
             if (config.treeConfig && showTreeConf) {
                 if (!treeEditBuf.contains(formID)) {
@@ -809,6 +819,7 @@ namespace MCP {
                 }
             }
 
+            ImGuiMCP::EndDisabled();
             // ModelSwapConfig
             if (config.modelSwapConfig && showModelConf) {
                 if (!modelEditBuf.contains(formID)) {

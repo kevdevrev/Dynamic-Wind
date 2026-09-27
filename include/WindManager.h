@@ -3,6 +3,7 @@
 #include "REX/REX.h"
 
 #include "WindFramework.h"
+#include "OpenShadersWind.h"
 #include "Settings.h"
 
 #define M_PI 3.14159265358979323846f
@@ -34,22 +35,25 @@ namespace Wind {
                 GenerateNewTargets(sky);
             }
 
-            // Smooth interpolation toward target
-            _angle = LerpAngle(_angle, _targetAngle, deltaTime * 0.1f);
-            _strength = Lerp(_strength, _targetStrength, deltaTime * 0.1f);
+            if (OpenShadersWind::IsEnabled()) {
+                _angle = _targetAngle;
+                _strength = _targetStrength;
+            } else {
+                _angle = LerpAngle(_angle, _targetAngle, deltaTime * 0.1f);
+                _strength = Lerp(_strength, _targetStrength, deltaTime * 0.1f);
+            }
 
             static float time = 0.0f;
             time += deltaTime;
 
-            // Add smooth procedural gusts
-            // Range: -3 / 10 <= f <= 3 / 10
-            float gust = std::sin(time * 0.7f) * 0.2f + std::sin(time * 2.3f) * 0.1f;
-
-            float finalStrength = std::clamp(_strength + (gust * _strength), 0.0f, 1.0f);
-
-            // Angle turbulence
-            float angleNoise = std::sin(time * 0.5f) * 0.1f + std::cos(time * 0.4f) * 0.1f;
-            float finalAngle = _angle + angleNoise;
+            float finalStrength = _strength;
+            float finalAngle = _angle;
+            if (!OpenShadersWind::IsEnabled()) {
+                float gust = std::sin(time * 0.7f) * 0.2f + std::sin(time * 2.3f) * 0.1f;
+                finalStrength = std::clamp(_strength + (gust * _strength), 0.0f, 1.0f);
+                float angleNoise = std::sin(time * 0.5f) * 0.1f + std::cos(time * 0.4f) * 0.1f;
+                finalAngle = _angle + angleNoise;
+            }
 
             while (finalAngle > M_PI) finalAngle -= M_PI * 2.0f;
             while (finalAngle < -M_PI) finalAngle += M_PI * 2.0f;
@@ -60,7 +64,7 @@ namespace Wind {
                 sky->windAngle = _targetAngle;
                 // if no precipitation, set it to match the wind direction and strength
                 if (!sky->IsRaining() && !sky->IsSnowing()) {
-                    auto& precipDir = sky->precip->GetDirection();
+                    auto& precipDir = GetPrecipitationDirection();
                     precipDir.x = std::cos(_targetAngle);
                     precipDir.y = std::sin(_targetAngle);
                     precipDir.z = _targetStrength;
@@ -73,7 +77,7 @@ namespace Wind {
                 sky->windAngle = finalAngle;
                 // if no precipitation, set it to match the wind direction and strength
                 if (!sky->IsRaining() && !sky->IsSnowing()) {
-                    auto& precipDir = sky->precip->GetDirection();
+                    auto& precipDir = GetPrecipitationDirection();
                     precipDir.x = std::cos(finalAngle);
                     precipDir.y = std::sin(finalAngle);
                     precipDir.z = finalStrength;
@@ -110,6 +114,12 @@ namespace Wind {
         }
 
     private:
+        // CommonLib's getter returns a copy; updates must target the engine's precipitation vector.
+        static RE::NiPoint3& GetPrecipitationDirection() {
+            static REL::Relocation<RE::NiPoint3*> direction{RELOCATION_ID(515509, 401648)};
+            return *direction;
+        }
+
         void GenerateNewTargets(const RE::Sky* sky) {
             float vanillaStrength = float(sky->currentWeather->data.windSpeed) / 255.0f;
 
